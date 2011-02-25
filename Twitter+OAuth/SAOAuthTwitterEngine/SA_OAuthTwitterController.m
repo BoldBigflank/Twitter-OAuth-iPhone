@@ -263,44 +263,16 @@ static NSString* const kGGTwitterLoadingBackgroundImage = @"twitter_load.png";
  I am fully aware that this code is chock full 'o flunk. That said:
  
  - first we check, using standard DOM-diving, for the pin, looking at both the old and new tags for it.
- - if not found, we try a regex for it. This did not work for me (though it did work in test web pages).
- - if STILL not found, we iterate the entire HTML and look for an all-numeric 'word', 7 characters in length
+ - if not found, we try a regex for the "oauth_verifier", which is a key that is the same as the PIN
 
-Ugly. I apologize for its inelegance. Bleah.
-
+ The PIN only shows up when you POST using "oauth_callback":"oob"; oauth_verifier works with any callback
 *********************************************************************************************************/
 
 - (NSString *) locateAuthPinInWebView: (UIWebView *) webView {
-	NSString			*js = @"var d = document.getElementById('oauth-pin'); if (d == null) d = document.getElementById('oauth_pin'); if (d) d = d.innerHTML; if (d == null) {var r = new RegExp('\\\\s[0-9]+\\\\s'); d = r.exec(document.body.innerHTML); if (d.length > 0) d = d[0];} d.replace(/^\\s*/, '').replace(/\\s*$/, ''); d;";
-	NSString			*pin = [webView stringByEvaluatingJavaScriptFromString: js];
+    NSString			*js = @"var d = document.getElementById('oauth-pin'); if (d == null) d = document.getElementById('oauth_pin'); if (d) d = d.innerHTML; if (d == null) d = document.body.innerHTML.match(/oauth_verifier=(.*?)[\\>|&|\\\"|\\s]/i)[1]; d;";
+    NSString			*pin = [webView stringByEvaluatingJavaScriptFromString: js];
 	
-//	if (pin.length > 0) return pin;
-	
-	NSString			*html = [webView stringByEvaluatingJavaScriptFromString: @"document.body.innerText"];
-	
-	if (html.length == 0) return nil;
-	
-	const char			*rawHTML = (const char *) [html UTF8String];
-	int					length = strlen(rawHTML), chunkLength = 0;
-	
-	for (int i = 0; i < length; i++) {
-		if (rawHTML[i] < '0' || rawHTML[i] > '9') {
-			if (chunkLength == 7) {
-				char				*buffer = (char *) malloc(chunkLength + 1);
-				
-				memmove(buffer, &rawHTML[i - chunkLength], chunkLength);
-				buffer[chunkLength] = 0;
-				
-				pin = [NSString stringWithUTF8String: buffer];
-				free(buffer);
-				return pin;
-			}
-			chunkLength = 0;
-		} else
-			chunkLength++;
-	}
-	
-	return nil;
+	return (pin.length) ? nil: pin;
 }
 
 - (UIToolbar *) pinCopyPromptBar {
